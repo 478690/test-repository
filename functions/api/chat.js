@@ -21,8 +21,16 @@ export async function onRequest(context) {
       });
     }
 
-    const accountId = env.CLOUDFLARE_ACCOUNT_ID || '30fdf13d5bb71a81bc6f7c732f244a72';
-    const apiToken = env.CLOUDFLARE_API_TOKEN || 'fbRWRPmxK-zJyg9QfhCP-JZBar8ZjSjKuMBkvYFP';
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+    const apiToken = env.CLOUDFLARE_API_TOKEN;
+    
+    if (!accountId || !apiToken) {
+      return new Response(JSON.stringify({ error: 'Cloudflare credentials not configured' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3-8b-instruct`;
 
     const response = await fetch(apiUrl, {
