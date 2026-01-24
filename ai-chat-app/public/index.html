@@ -249,18 +249,25 @@
                     },
                     body: JSON.stringify({ message: message })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    // 移除输入指示器
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
                     typingIndicator.remove();
-                    // 添加 AI 回复
                     addMessage('ai', data.response);
                     sendButton.disabled = false;
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     typingIndicator.remove();
-                    addMessage('ai', '抱歉，出现了错误。请稍后再试。');
+                    const errorMessage = `抱歉，出现了错误：${error.message}。请检查网络连接或稍后再试。`;
+                    addMessage('ai', errorMessage);
                     sendButton.disabled = false;
                 });
             }
