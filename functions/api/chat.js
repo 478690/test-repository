@@ -85,28 +85,45 @@ async function callCloudflareAI(message, model, history, env) {
     content: message
   });
 
+  const requestData = {
+    model: selectedModel,
+    messages: messages,
+    max_tokens: 2048,
+    temperature: 0.7
+  };
+
   let apiUrl;
   let headers = {
     'Content-Type': 'application/json'
   };
 
   if (aiGatewayToken) {
-    apiUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/ai/run/${selectedModel}`;
-    headers['Authorization'] = `Bearer ${aiGatewayToken}`;
-  } else {
-    apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
-    headers['Authorization'] = `Bearer ${apiToken}`;
+    try {
+      apiUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/ai/run/${selectedModel}`;
+      headers['Authorization'] = `Bearer ${aiGatewayToken}`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.result?.response || data.response || '';
+      }
+    } catch (error) {
+      console.log('AI Gateway not available, falling back to direct API');
+    }
   }
+
+  apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
+  headers['Authorization'] = `Bearer ${apiToken}`;
 
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: headers,
-    body: JSON.stringify({
-      model: selectedModel,
-      messages: messages,
-      max_tokens: 2048,
-      temperature: 0.7
-    })
+    body: JSON.stringify(requestData)
   });
 
   if (!response.ok) {

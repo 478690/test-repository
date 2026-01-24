@@ -78,17 +78,6 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
         api_token = '63lOCOxo7FqbBL6rvRMUb0LnaVwS5_lrODi-vn2c'
         account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
         
-        use_gateway = True
-        
-        if use_gateway:
-            api_url = 'https://gateway.ai.cloudflare.com/v1/{}/ai/run/{}'.format(account_id, model)
-            auth_token = ai_gateway_token
-            print("Using AI Gateway: {}".format(api_url))
-        else:
-            api_url = 'https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}'.format(account_id, model)
-            auth_token = api_token
-            print("Using direct API: {}".format(api_url))
-        
         messages = [
             {
                 'role': 'system',
@@ -114,6 +103,36 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
             'temperature': 0.7
         }
         
+        try:
+            api_url = 'https://gateway.ai.cloudflare.com/v1/{}/ai/run/{}'.format(account_id, model)
+            auth_token = ai_gateway_token
+            print("Trying AI Gateway: {}".format(api_url))
+            
+            req = urllib.request.Request(
+                api_url,
+                data=json.dumps(api_data).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer {}'.format(auth_token)
+                }
+            )
+            
+            with urllib.request.urlopen(req) as response:
+                response_data = json.loads(response.read().decode('utf-8'))
+                print("AI Gateway success!")
+                return response_data.get('result', {}).get('response', '')
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                print("AI Gateway not configured (403), falling back to direct API...")
+            else:
+                raise
+        except Exception as e:
+            print("AI Gateway error: {}, falling back to direct API...".format(str(e)))
+        
+        api_url = 'https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}'.format(account_id, model)
+        auth_token = api_token
+        print("Using direct API: {}".format(api_url))
+        
         req = urllib.request.Request(
             api_url,
             data=json.dumps(api_data).encode('utf-8'),
@@ -125,6 +144,7 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
         
         with urllib.request.urlopen(req) as response:
             response_data = json.loads(response.read().decode('utf-8'))
+            print("Direct API success!")
             return response_data.get('result', {}).get('response', '')
 
     def call_gemini_api(self, message, model, history):
