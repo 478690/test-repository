@@ -74,8 +74,8 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(response.encode('utf-8'))
 
     def call_cloudflare_ai(self, message, model, history):
-        ai_gateway_token = 'jDGJmcyVRm_PnbueQq-NIjBfRdXvc8HqPQgbjMSI'
-        api_token = '63lOCOxo7FqbBL6rvRMUb0LnaVwS5_lrODi-vn2c'
+        ai_gateway_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
+        api_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
         account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
         
         messages = [
