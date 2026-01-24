@@ -81,6 +81,26 @@
             font-weight: 500;
         }
 
+        .provider-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            background-color: var(--bg-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .provider-label {
+            color: var(--text-secondary);
+        }
+
+        .provider-text {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
         .status-dot {
             width: 8px;
             height: 8px;
@@ -370,13 +390,24 @@
                 <span class="status-dot"></span>
                 <span class="status-text">检查中...</span>
             </div>
+            <div class="provider-status" id="providerStatus" title="AI 提供商">
+                <span class="provider-label">提供商:</span>
+                <span class="provider-text">-</span>
+            </div>
             <select class="model-select" id="modelSelect">
-                <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B (推荐)</option>
-                <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B (INT8)</option>
-                <option value="@cf/meta/llama-2-7b-chat-fp16">Llama 2 7B (FP16)</option>
-                <option value="@cf/mistral/mistral-7b-instruct-v0.2">Mistral 7B Instruct</option>
-                <option value="@hf/thebloke/neural-chat-7b-v3-1-awq">Neural Chat 7B</option>
-                <option value="@cf/openai/whisper">Whisper (语音转文字)</option>
+                <optgroup label="Cloudflare Workers AI">
+                    <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B (推荐)</option>
+                    <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B (INT8)</option>
+                    <option value="@cf/meta/llama-2-7b-chat-fp16">Llama 2 7B (FP16)</option>
+                    <option value="@cf/mistral/mistral-7b-instruct-v0.2">Mistral 7B Instruct</option>
+                    <option value="@hf/thebloke/neural-chat-7b-v3-1-awq">Neural Chat 7B</option>
+                    <option value="@cf/openai/whisper">Whisper (语音转文字)</option>
+                </optgroup>
+                <optgroup label="Google Gemini">
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    <option value="gemini-2.0-flash">Gemini 2.0 Flash (推荐)</option>
+                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </optgroup>
             </select>
         </div>
         <div class="header-right">
@@ -552,6 +583,7 @@
                     }
 
                     updateGatewayStatus(data.gateway);
+                    updateProviderStatus(data.provider);
                     typingIndicator.remove();
                     addMessage('ai', data.response);
 
@@ -626,6 +658,13 @@
                     statusDot.classList.add('inactive');
                     statusDot.classList.remove('active');
                     statusText.textContent = 'Gateway 未启用';
+                }
+            }
+
+            function updateProviderStatus(provider) {
+                const providerText = document.querySelector('.provider-text');
+                if (providerText) {
+                    providerText.textContent = provider;
                 }
             }
 
