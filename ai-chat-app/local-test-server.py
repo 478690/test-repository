@@ -139,6 +139,52 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
                 response = json.dumps({'error': 'Image generation failed: {}'.format(str(e))})
                 self.wfile.write(response.encode('utf-8'))
         
+        elif self.path == '/api/stt':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                boundary = self.headers['Content-Type'].split('boundary=')[1]
+                parts = post_data.split(('--' + boundary).encode('utf-8'))
+                
+                audio_data = None
+                model = '@cf/openai/whisper'
+                
+                for part in parts:
+                    if b'Content-Disposition: form-data' in part and b'audio' in part:
+                        headers_end = part.find(b'\r\n\r\n')
+                        audio_data = part[headers_end + 4:].rstrip(b'\r\n')
+                    elif b'Content-Disposition: form-data' in part and b'model' in part:
+                        headers_end = part.find(b'\r\n\r\n')
+                        model = part[headers_end + 4:].rstrip(b'\r\n').decode('utf-8')
+                
+                if not audio_data:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    response = json.dumps({'error': 'No audio data provided'})
+                    self.wfile.write(response.encode('utf-8'))
+                    return
+
+                print("STT Request - Audio size: {} bytes".format(len(audio_data)))
+                print("STT Model: {}".format(model))
+                
+                transcription = self.call_stt_api(audio_data, model)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                response = json.dumps({'text': transcription})
+                self.wfile.write(response.encode('utf-8'))
+                        
+            except Exception as e:
+                print("STT Error: {}".format(str(e)))
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                response = json.dumps({'error': 'STT failed: {}'.format(str(e))})
+                self.wfile.write(response.encode('utf-8'))
+        
         else:
             self.send_response(404)
             self.send_header('Content-Type', 'application/json')
@@ -295,7 +341,8 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
         )
         
         with urllib.request.urlopen(req) as response:
-            return response.read()
+            response_data = json.loads(response.read().decode('utf-8'))
+            return response_data.get('result', {}).get('text', '')
 
     def call_image_api(self, prompt, model):
         api_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
