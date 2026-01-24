@@ -356,6 +356,45 @@
             max-width: 800px;
         }
 
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .message-action-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .message-action-btn:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .message-action-btn.playing {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+        }
+
+        .generated-image {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 12px;
+            box-shadow: var(--shadow);
+        }
+
         .message-content p {
             margin-bottom: 12px;
             line-height: 1.7;
@@ -1135,6 +1174,119 @@
                 inputBox.style.height = Math.min(inputBox.scrollHeight, 200) + 'px';
             }
 
+            async function playVoice(text, button) {
+                try {
+                    button.classList.add('playing');
+                    button.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="10" y1="15" x2="10" y2="9"></line>
+                            <line x1="14" y1="15" x2="14" y2="9"></line>
+                        </svg>
+                        生成中...
+                    `;
+
+                    const cleanText = text.replace(/[#*`_\[\]]/g, '').substring(0, 500);
+                    
+                    const response = await fetch('/api/tts', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            text: cleanText,
+                            model: '@cf/deepgram/aura-2-en'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('语音生成失败');
+                    }
+
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    const audio = new Audio(audioUrl);
+
+                    button.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="6" y="4" width="4" height="16"></rect>
+                            <rect x="14" y="4" width="4" height="16"></rect>
+                        </svg>
+                        播放中...
+                    `;
+
+                    audio.onended = () => {
+                        button.classList.remove('playing');
+                        button.innerHTML = `
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                            </svg>
+                            播放语音
+                        `;
+                        URL.revokeObjectURL(audioUrl);
+                    };
+
+                    audio.play();
+
+                } catch (error) {
+                    console.error('语音播放错误:', error);
+                    button.classList.remove('playing');
+                    button.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        播放语音
+                    `;
+                    alert('语音生成失败: ' + error.message);
+                }
+            }
+
+            async function generateImage(prompt, messageDiv) {
+                try {
+                    const cleanPrompt = prompt.replace(/[#*`_\[\]]/g, '').substring(0, 200);
+                    
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.className = 'message-content';
+                    loadingDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+                    loadingDiv.style.marginTop = '12px';
+                    messageDiv.appendChild(loadingDiv);
+
+                    const response = await fetch('/api/image', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            prompt: cleanPrompt,
+                            model: '@cf/black-forest-labs/flux-1-schnell'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('图像生成失败');
+                    }
+
+                    const imageBlob = await response.blob();
+                    const imageUrl = URL.createObjectURL(imageBlob);
+
+                    loadingDiv.remove();
+
+                    const img = document.createElement('img');
+                    img.className = 'generated-image';
+                    img.src = imageUrl;
+                    img.alt = '生成的图片';
+                    messageDiv.appendChild(img);
+
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                } catch (error) {
+                    console.error('图像生成错误:', error);
+                    alert('图像生成失败: ' + error.message);
+                }
+            }
+
             function addMessage(role, content) {
                 if (welcomeScreen) {
                     welcomeScreen.style.display = 'none';
@@ -1153,8 +1305,40 @@
 
                 messageDiv.appendChild(avatar);
                 messageDiv.appendChild(messageContent);
-                chatContainer.appendChild(messageDiv);
 
+                if (role === 'ai') {
+                    const messageActions = document.createElement('div');
+                    messageActions.className = 'message-actions';
+
+                    const voiceBtn = document.createElement('button');
+                    voiceBtn.className = 'message-action-btn';
+                    voiceBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                        播放语音
+                    `;
+                    voiceBtn.onclick = () => playVoice(content, voiceBtn);
+                    messageActions.appendChild(voiceBtn);
+
+                    const imageBtn = document.createElement('button');
+                    imageBtn.className = 'message-action-btn';
+                    imageBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        生成图片
+                    `;
+                    imageBtn.onclick = () => generateImage(content, messageDiv);
+                    messageActions.appendChild(imageBtn);
+
+                    messageDiv.appendChild(messageActions);
+                }
+
+                chatContainer.appendChild(messageDiv);
                 chatContainer.scrollTop = chatContainer.scrollHeight;
 
                 conversationHistory.push({ role, content });

@@ -66,6 +66,79 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 response = json.dumps({'error': 'Server error: {}'.format(str(e))})
                 self.wfile.write(response.encode('utf-8'))
+        
+        elif self.path == '/api/tts':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                text = data.get('text', '')
+                model = data.get('model', '@cf/deepgram/aura-2-en')
+                
+                if not text:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    response = json.dumps({'error': 'Invalid text'})
+                    self.wfile.write(response.encode('utf-8'))
+                    return
+
+                print("TTS Request - Text: {}...".format(text[:50]))
+                print("TTS Model: {}".format(model))
+                
+                audio_data = self.call_tts_api(text, model)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'audio/mpeg')
+                self.send_header('Content-Length', str(len(audio_data)))
+                self.end_headers()
+                self.wfile.write(audio_data)
+                        
+            except Exception as e:
+                print("TTS Error: {}".format(str(e)))
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                response = json.dumps({'error': 'TTS failed: {}'.format(str(e))})
+                self.wfile.write(response.encode('utf-8'))
+        
+        elif self.path == '/api/image':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                data = json.loads(post_data.decode('utf-8'))
+                prompt = data.get('prompt', '')
+                model = data.get('model', '@cf/black-forest-labs/flux-1-schnell')
+                
+                if not prompt:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    response = json.dumps({'error': 'Invalid prompt'})
+                    self.wfile.write(response.encode('utf-8'))
+                    return
+
+                print("Image Generation Request - Prompt: {}...".format(prompt[:50]))
+                print("Image Model: {}".format(model))
+                
+                image_data = self.call_image_api(prompt, model)
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Content-Length', str(len(image_data)))
+                self.end_headers()
+                self.wfile.write(image_data)
+                        
+            except Exception as e:
+                print("Image Generation Error: {}".format(str(e)))
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                response = json.dumps({'error': 'Image generation failed: {}'.format(str(e))})
+                self.wfile.write(response.encode('utf-8'))
+        
         else:
             self.send_response(404)
             self.send_header('Content-Type', 'application/json')
@@ -205,6 +278,46 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
         with urllib.request.urlopen(req) as response:
             response_data = json.loads(response.read().decode('utf-8'))
             return response_data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+
+    def call_tts_api(self, text, model):
+        api_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
+        account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
+        
+        api_url = 'https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}'.format(account_id, model)
+        
+        req = urllib.request.Request(
+            api_url,
+            data=json.dumps({'text': text}).encode('utf-8'),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer {}'.format(api_token)
+            }
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            return response.read()
+
+    def call_image_api(self, prompt, model):
+        api_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
+        account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
+        
+        api_url = 'https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}'.format(account_id, model)
+        
+        req = urllib.request.Request(
+            api_url,
+            data=json.dumps({
+                'prompt': prompt,
+                'num_steps': 20,
+                'guidance_scale': 7.5
+            }).encode('utf-8'),
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer {}'.format(api_token)
+            }
+        )
+        
+        with urllib.request.urlopen(req) as response:
+            return response.read()
 
 if __name__ == '__main__':
     PORT = 8000
