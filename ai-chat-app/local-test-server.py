@@ -74,7 +74,20 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(response.encode('utf-8'))
 
     def call_cloudflare_ai(self, message, model, history):
-        api_url = 'https://api.cloudflare.com/client/v4/accounts/30fdf13d5bb71a81bc6f7c732f244a72/ai/run/{}'.format(model)
+        ai_gateway_token = 'jDGJmcyVRm_PnbueQq-NIjBfRdXvc8HqPQgbjMSI'
+        api_token = '63lOCOxo7FqbBL6rvRMUb0LnaVwS5_lrODi-vn2c'
+        account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
+        
+        use_gateway = True
+        
+        if use_gateway:
+            api_url = 'https://gateway.ai.cloudflare.com/v1/{}/ai/run/{}'.format(account_id, model)
+            auth_token = ai_gateway_token
+            print("Using AI Gateway: {}".format(api_url))
+        else:
+            api_url = 'https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}'.format(account_id, model)
+            auth_token = api_token
+            print("Using direct API: {}".format(api_url))
         
         messages = [
             {
@@ -106,7 +119,7 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
             data=json.dumps(api_data).encode('utf-8'),
             headers={
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer fbRWRPmxK-zJyg9QfhCP-JZBar8ZjSjKuMBkvYFP'
+                'Authorization': 'Bearer {}'.format(auth_token)
             }
         )
         
