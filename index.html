@@ -331,10 +331,12 @@
         <div class="header-left">
             <div class="header-title">AI Chat</div>
             <select class="model-select" id="modelSelect">
-                <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B</option>
-                <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B</option>
-                <option value="@cf/mistral/mistral-7b-instruct-v0.2">Mistral 7B</option>
+                <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B (推荐)</option>
+                <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B (INT8)</option>
+                <option value="@cf/meta/llama-2-7b-chat-fp16">Llama 2 7B (FP16)</option>
+                <option value="@cf/mistral/mistral-7b-instruct-v0.2">Mistral 7B Instruct</option>
                 <option value="@hf/thebloke/neural-chat-7b-v3-1-awq">Neural Chat 7B</option>
+                <option value="@cf/openai/whisper">Whisper (语音转文字)</option>
             </select>
         </div>
         <div class="header-right">
