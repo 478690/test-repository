@@ -12,7 +12,7 @@ export async function onRequest(context) {
       });
     }
 
-    const { message } = await request.json();
+    const { message, model, history } = await request.json();
     
     if (!message || typeof message !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid message' }), {
@@ -30,8 +30,32 @@ export async function onRequest(context) {
         headers: { 'Content-Type': 'application/json' }
       });
     }
-    
-    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3-8b-instruct`;
+
+    const selectedModel = model || '@cf/meta/llama-3-8b-instruct';
+    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
+
+    const messages = [
+      {
+        role: 'system',
+        content: '你是一个友好的 AI 助手，使用中文回答用户的问题。你可以使用 Markdown 格式来组织回答，包括代码块、列表等。'
+      }
+    ];
+
+    if (history && Array.isArray(history)) {
+      history.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          });
+        }
+      });
+    }
+
+    messages.push({
+      role: 'user',
+      content: message
+    });
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -40,16 +64,9 @@ export async function onRequest(context) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: '你是一个友好的 AI 助手，使用中文回答用户的问题。'
-          },
-          {
-            role: 'user',
-            content: message
-          }
-        ]
+        messages: messages,
+        max_tokens: 2048,
+        temperature: 0.7
       })
     });
 

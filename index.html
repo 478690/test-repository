@@ -3,8 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudflare AI 对话助手</title>
+    <title>AI Chat - Cloudflare Workers AI</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f7f7f8;
+            --bg-tertiary: #ececf1;
+            --text-primary: #374151;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --user-message-bg: #f3f4f6;
+            --ai-message-bg: transparent;
+            --accent-color: #10a37f;
+            --accent-hover: #1a7f64;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #343541;
+            --bg-secondary: #444654;
+            --bg-tertiary: #565869;
+            --text-primary: #ececf1;
+            --text-secondary: #acacbe;
+            --border-color: #565869;
+            --user-message-bg: #343541;
+            --ai-message-bg: #444654;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,153 +41,242 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background-color: #f5f5f5;
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-primary);
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px 0;
-            background-color: #333;
-            color: white;
-            border-radius: 8px;
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
 
-        h1 {
-            font-size: 28px;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
+        .header-title {
             font-size: 16px;
-            opacity: 0.8;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .model-select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .theme-toggle, .export-btn, .clear-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            color: var(--text-primary);
+            transition: background-color 0.2s;
+        }
+
+        .theme-toggle:hover, .export-btn:hover, .clear-btn:hover {
+            background-color: var(--bg-secondary);
         }
 
         .chat-container {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
-        .chat-messages {
-            height: 500px;
-            overflow-y: auto;
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             padding: 20px;
-            background-color: #fafafa;
+        }
+
+        .welcome-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .welcome-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .welcome-subtitle {
+            color: var(--text-secondary);
+            font-size: 16px;
         }
 
         .message {
-            margin-bottom: 15px;
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            animation: fadeIn 0.3s ease;
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            gap: 16px;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .message.ai {
+            background-color: var(--ai-message-bg);
         }
 
-        .user-message {
-            background-color: #e3f2fd;
-            margin-left: auto;
-            border-bottom-right-radius: 4px;
+        .message.user {
+            background-color: var(--user-message-bg);
         }
 
-        .ai-message {
-            background-color: #f1f1f1;
-            margin-right: auto;
-            border-bottom-left-radius: 4px;
+        .message-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .message.ai .message-avatar {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .message.user .message-avatar {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
         }
 
         .message-content {
-            word-wrap: break-word;
-        }
-
-        .message-time {
-            font-size: 12px;
-            color: #999;
-            margin-top: 4px;
-            text-align: right;
-        }
-
-        .chat-input {
-            display: flex;
-            padding: 15px;
-            background-color: white;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        input[type="text"] {
             flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #ddd;
-            border-radius: 20px;
+            overflow-x: auto;
+        }
+
+        .message-content p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content pre {
+            background-color: #1e1e1e;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+
+        .message-content code {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .message-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .message-content :not(pre) > code {
+            background-color: var(--bg-tertiary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .input-container {
+            border-top: 1px solid var(--border-color);
+            padding: 20px;
+            background-color: var(--bg-primary);
+        }
+
+        .input-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .input-box {
+            width: 100%;
+            padding: 16px 50px 16px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
             font-size: 16px;
+            font-family: inherit;
+            resize: none;
             outline: none;
-            transition: border-color 0.3s ease;
+            transition: border-color 0.2s;
+            max-height: 200px;
+            overflow-y: auto;
         }
 
-        input[type="text"]:focus {
-            border-color: #2196f3;
+        .input-box:focus {
+            border-color: var(--accent-color);
         }
 
-        button {
-            background-color: #2196f3;
+        .send-button {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            background-color: var(--accent-color);
             color: white;
             border: none;
-            border-radius: 20px;
-            padding: 12px 20px;
-            margin-left: 10px;
-            font-size: 16px;
+            border-radius: 8px;
+            padding: 8px 12px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            font-size: 14px;
+            transition: background-color 0.2s;
         }
 
-        button:hover {
-            background-color: #1976d2;
+        .send-button:hover:not(:disabled) {
+            background-color: var(--accent-hover);
         }
 
-        button:disabled {
-            background-color: #bdbdbd;
+        .send-button:disabled {
+            background-color: var(--bg-tertiary);
             cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .typing-indicator {
             display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            background-color: #f1f1f1;
-            margin-right: auto;
-            max-width: 80%;
-            border-radius: 18px;
-            border-bottom-left-radius: 4px;
+            gap: 4px;
+            padding: 8px 0;
         }
 
         .typing-indicator span {
-            height: 8px;
             width: 8px;
-            margin: 0 1px;
-            background-color: #999;
+            height: 8px;
+            background-color: var(--text-secondary);
             border-radius: 50%;
-            display: inline-block;
-            animation: bounce 1.4s infinite ease-in-out both;
+            animation: bounce 1.4s infinite ease-in-out;
         }
 
         .typing-indicator span:nth-child(1) {
@@ -178,136 +296,299 @@
             }
         }
 
-        .welcome-message {
-            text-align: center;
-            color: #666;
-            margin: 40px 0;
-            font-style: italic;
+        .turnstile-container {
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .turnstile-container.show {
+            display: block;
         }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-
-            .chat-messages {
-                height: 400px;
-            }
-
             .message {
-                max-width: 90%;
+                padding: 16px 12px;
+            }
+
+            .message-avatar {
+                width: 24px;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .input-container {
+                padding: 12px;
+            }
+
+            .header-title {
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Cloudflare AI 对话助手</h1>
-            <p class="subtitle">基于 Workers AI 的智能对话系统</p>
-        </header>
+    <div class="header">
+        <div class="header-left">
+            <div class="header-title">AI Chat</div>
+            <select class="model-select" id="modelSelect">
+                <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B</option>
+                <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B</option>
+                <option value="@cf/mistral/mistral-7b-instruct-v0.2">Mistral 7B</option>
+                <option value="@hf/thebloke/neural-chat-7b-v3-1-awq">Neural Chat 7B</option>
+            </select>
+        </div>
+        <div class="header-right">
+            <button class="clear-btn" id="clearBtn" title="清空对话">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                </svg>
+            </button>
+            <button class="export-btn" id="exportBtn" title="导出对话">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+            </button>
+            <button class="theme-toggle" id="themeToggle" title="切换主题">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
 
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages">
-                <div class="welcome-message">
-                    👋 你好！我是基于 Cloudflare Workers AI 的对话助手。
-                    <br>有什么我可以帮助你的吗？
-                </div>
-            </div>
+    <div class="chat-container" id="chatContainer">
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-icon">🤖</div>
+            <div class="welcome-title">欢迎使用 AI Chat</div>
+            <div class="welcome-subtitle">基于 Cloudflare Workers AI 的智能对话助手</div>
+        </div>
+    </div>
 
-            <div class="chat-input">
-                <input type="text" id="userInput" placeholder="输入你的问题..." autocomplete="off">
-                <button id="sendButton">发送</button>
-            </div>
+    <div class="input-container">
+        <div class="turnstile-container" id="turnstileContainer"></div>
+        <div class="input-wrapper">
+            <textarea class="input-box" id="inputBox" placeholder="发送消息..." rows="1"></textarea>
+            <button class="send-button" id="sendButton">发送</button>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const chatMessages = document.getElementById('chatMessages');
-            const userInput = document.getElementById('userInput');
+            const chatContainer = document.getElementById('chatContainer');
+            const welcomeScreen = document.getElementById('welcomeScreen');
+            const inputBox = document.getElementById('inputBox');
             const sendButton = document.getElementById('sendButton');
+            const themeToggle = document.getElementById('themeToggle');
+            const clearBtn = document.getElementById('clearBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const modelSelect = document.getElementById('modelSelect');
 
-            function sendMessage() {
-                const message = userInput.value.trim();
-                if (message === '') return;
+            let conversationHistory = [];
+            let isTyping = false;
+
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        return hljs.highlight(code, { language: lang }).value;
+                    }
+                    return hljs.highlightAuto(code).value;
+                },
+                breaks: true
+            });
+
+            function loadTheme() {
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+
+            function toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+            }
+
+            function autoResizeTextarea() {
+                inputBox.style.height = 'auto';
+                inputBox.style.height = Math.min(inputBox.scrollHeight, 200) + 'px';
+            }
+
+            function addMessage(role, content) {
+                if (welcomeScreen) {
+                    welcomeScreen.style.display = 'none';
+                }
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.textContent = role === 'user' ? 'U' : 'AI';
+
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-content';
+                messageContent.innerHTML = marked.parse(content);
+
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+                chatContainer.appendChild(messageDiv);
+
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                conversationHistory.push({ role, content });
+                saveConversation();
+            }
+
+            function addTypingIndicator() {
+                if (welcomeScreen) {
+                    welcomeScreen.style.display = 'none';
+                }
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai';
+
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.textContent = 'AI';
+
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-content';
+                messageContent.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+                chatContainer.appendChild(messageDiv);
+
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                return messageDiv;
+            }
+
+            async function sendMessage() {
+                const message = inputBox.value.trim();
+                if (message === '' || isTyping) return;
 
                 addMessage('user', message);
-                userInput.value = '';
+                inputBox.value = '';
+                autoResizeTextarea();
+                isTyping = true;
                 sendButton.disabled = true;
 
                 const typingIndicator = addTypingIndicator();
 
-                fetch('/api/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message: message })
-                })
-                .then(response => {
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            model: modelSelect.value,
+                            history: conversationHistory
+                        })
+                    });
+
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    return response.json();
-                })
-                .then(data => {
+
+                    const data = await response.json();
+
                     if (data.error) {
                         throw new Error(data.error);
                     }
+
                     typingIndicator.remove();
                     addMessage('ai', data.response);
-                    sendButton.disabled = false;
-                })
-                .catch(error => {
+
+                } catch (error) {
                     console.error('Error:', error);
                     typingIndicator.remove();
-                    const errorMessage = `抱歉，出现了错误：${error.message}。请检查网络连接或稍后再试。`;
-                    addMessage('ai', errorMessage);
+                    addMessage('ai', `抱歉，出现了错误：${error.message}`);
+                } finally {
+                    isTyping = false;
                     sendButton.disabled = false;
+                    inputBox.focus();
+                }
+            }
+
+            function saveConversation() {
+                localStorage.setItem('conversation', JSON.stringify(conversationHistory));
+            }
+
+            function loadConversation() {
+                const saved = localStorage.getItem('conversation');
+                if (saved) {
+                    conversationHistory = JSON.parse(saved);
+                    conversationHistory.forEach(msg => {
+                        addMessage(msg.role, msg.content);
+                    });
+                }
+            }
+
+            function clearConversation() {
+                if (confirm('确定要清空对话吗？')) {
+                    conversationHistory = [];
+                    localStorage.removeItem('conversation');
+                    chatContainer.innerHTML = '';
+                    chatContainer.appendChild(welcomeScreen);
+                    welcomeScreen.style.display = 'flex';
+                }
+            }
+
+            function exportConversation() {
+                if (conversationHistory.length === 0) {
+                    alert('没有对话可以导出');
+                    return;
+                }
+
+                let content = 'AI Chat 对话记录\n';
+                content += '==================\n\n';
+                content += `导出时间: ${new Date().toLocaleString('zh-CN')}\n\n`;
+
+                conversationHistory.forEach((msg, index) => {
+                    content += `[${msg.role.toUpperCase()}]\n`;
+                    content += `${msg.content}\n\n`;
                 });
+
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chat-export-${Date.now()}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
             }
 
-            function addMessage(type, content) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `${type}-message message`;
-                
-                const messageContent = document.createElement('div');
-                messageContent.className = 'message-content';
-                messageContent.textContent = content;
-                
-                const messageTime = document.createElement('div');
-                messageTime.className = 'message-time';
-                const now = new Date();
-                messageTime.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-                
-                messageDiv.appendChild(messageContent);
-                messageDiv.appendChild(messageTime);
-                chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
+            loadTheme();
+            loadConversation();
 
-            function addTypingIndicator() {
-                const typingDiv = document.createElement('div');
-                typingDiv.className = 'ai-message message';
-                
-                const typingContent = document.createElement('div');
-                typingContent.className = 'typing-indicator';
-                typingContent.innerHTML = '<span></span><span></span><span></span>';
-                
-                typingDiv.appendChild(typingContent);
-                chatMessages.appendChild(typingDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                return typingDiv;
-            }
-
+            themeToggle.addEventListener('click', toggleTheme);
             sendButton.addEventListener('click', sendMessage);
-            
-            userInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+            clearBtn.addEventListener('click', clearConversation);
+            exportBtn.addEventListener('click', exportConversation);
+
+            inputBox.addEventListener('input', autoResizeTextarea);
+
+            inputBox.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
                     sendMessage();
                 }
             });
+
+            inputBox.focus();
         });
     </script>
 </body>
