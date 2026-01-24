@@ -54,7 +54,7 @@ export async function onRequest(context) {
 async function callCloudflareAI(message, model, history, env) {
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   const apiToken = env.CLOUDFLARE_API_TOKEN;
-  const aiGatewayUrl = env.AI_GATEWAY_URL;
+  const aiGatewayToken = env.AI_GATEWAY_TOKEN;
   
   if (!accountId || !apiToken) {
     throw new Error('Cloudflare credentials not configured');
@@ -90,10 +90,9 @@ async function callCloudflareAI(message, model, history, env) {
     'Content-Type': 'application/json'
   };
 
-  if (aiGatewayUrl) {
-    apiUrl = aiGatewayUrl;
-    headers['Authorization'] = `Bearer ${apiToken}`;
-    headers['cf-aig-authorization'] = `Bearer ${apiToken}`;
+  if (aiGatewayToken) {
+    apiUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/ai/run/${selectedModel}`;
+    headers['Authorization'] = `Bearer ${aiGatewayToken}`;
   } else {
     apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
     headers['Authorization'] = `Bearer ${apiToken}`;
