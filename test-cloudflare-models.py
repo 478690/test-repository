@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+import json
+import urllib.request
+import time
+
+class ModelTester:
+    def __init__(self):
+        self.account_id = '30fdf13d5bb71a81bc6f7c732f244a72'
+        self.api_token = 'yuQYV5OLqM6FD6x017d1K_9OxtJF2ytnGU2kJ3y6'
+        
+        self.cloudflare_models = [
+            '@cf/meta/llama-4-7b-instruct',
+            '@cf/google/gemma-3-12b-it',
+            '@cf/qwen/qwq-32b'
+        ]
+        
+        self.test_message = "你好，请用一句话介绍你自己。"
+    
+    def test_cloudflare_model(self, model):
+        print(f"\n{'='*60}")
+        print(f"测试模型: {model}")
+        print(f"{'='*60}")
+        
+        try:
+            start_time = time.time()
+            
+            messages = [
+                {
+                    'role': 'system',
+                    'content': '你是一个友好的 AI 助手，使用中文回答问题。'
+                },
+                {
+                    'role': 'user',
+                    'content': self.test_message
+                }
+            ]
+            
+            api_url = f'https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run/{model}'
+            
+            req = urllib.request.Request(
+                api_url,
+                data=json.dumps({
+                    'messages': messages,
+                    'max_tokens': 100,
+                    'temperature': 0.7
+                }).encode('utf-8'),
+                headers={
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {self.api_token}'
+                }
+            )
+            
+            with urllib.request.urlopen(req) as response:
+                response_data = json.loads(response.read().decode('utf-8'))
+                elapsed_time = time.time() - start_time
+                
+                if response_data.get('success'):
+                    result = response_data.get('result', {})
+                    ai_response = result.get('response', '')
+                    usage = result.get('usage', {})
+                    
+                    print(f"✅ 状态: 成功")
+                    print(f"⏱️  响应时间: {elapsed_time:.2f} 秒")
+                    print(f"📊 Token 使用:")
+                    print(f"   - 输入: {usage.get('prompt_tokens', 0)}")
+                    print(f"   - 输出: {usage.get('completion_tokens', 0)}")
+                    print(f"   - 总计: {usage.get('total_tokens', 0)}")
+                    print(f"\n💬 AI 回复:")
+                    print(f"   {ai_response[:200]}{'...' if len(ai_response) > 200 else ''}")
+                    
+                    return {
+                        'model': model,
+                        'success': True,
+                        'response_time': elapsed_time,
+                        'usage': usage,
+                        'response': ai_response
+                    }
+                else:
+                    print(f"❌ 状态: 失败")
+                    print(f"错误: {response_data.get('errors', [])}")
+                    return {
+                        'model': model,
+                        'success': False,
+                        'error': response_data.get('errors', [])
+                    }
+                    
+        except urllib.error.HTTPError as e:
+            print(f"❌ HTTP 错误: {e.code} - {e.reason}")
+            return {
+                'model': model,
+                'success': False,
+                'error': f"HTTP {e.code}: {e.reason}"
+            }
+        except Exception as e:
+            print(f"❌ 错误: {str(e)}")
+            return {
+                'model': model,
+                'success': False,
+                'error': str(e)
+            }
+    
+    def test_all_models(self):
+        print("\n" + "="*60)
+        print("开始测试所有 Cloudflare Workers AI 模型")
+        print("="*60)
+        
+        results = []
+        
+        for model in self.cloudflare_models:
+            result = self.test_cloudflare_model(model)
+            results.append(result)
+            time.sleep(1)
+        
+        self.print_summary(results)
+        
+        return results
+    
+    def print_summary(self, results):
+        print("\n\n" + "="*60)
+        print("测试结果汇总")
+        print("="*60)
+        
+        for result in results:
+            status = "✅ 成功" if result['success'] else "❌ 失败"
+            print(f"{result['model']}: {status}")
+            if result['success']:
+                print(f"   响应时间: {result['response_time']:.2f} 秒")
+                print(f"   Token 使用: {result['usage'].get('total_tokens', 0)}")
+            else:
+                print(f"   错误: {result['error']}")
+        
+        print("\n" + "="*60)
+        
+        successful_count = sum(1 for r in results if r['success'])
+        total_count = len(results)
+        
+        print(f"总计: {successful_count}/{total_count} 个模型测试成功")
+        print("="*60)
+
+if __name__ == '__main__':
+    tester = ModelTester()
+    results = tester.test_all_models()
+    
+    print("\n\n✅ 测试完成！")
