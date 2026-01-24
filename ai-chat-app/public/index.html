@@ -228,20 +228,16 @@
             const userInput = document.getElementById('userInput');
             const sendButton = document.getElementById('sendButton');
 
-            // 发送消息
             function sendMessage() {
                 const message = userInput.value.trim();
                 if (message === '') return;
 
-                // 添加用户消息
                 addMessage('user', message);
                 userInput.value = '';
                 sendButton.disabled = true;
 
-                // 显示 AI 正在输入
                 const typingIndicator = addTypingIndicator();
 
-                // 发送请求到 AI
                 fetch('/api/chat', {
                     method: 'POST',
                     headers: {
@@ -272,7 +268,6 @@
                 });
             }
 
-            // 添加消息到聊天窗口
             function addMessage(type, content) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `${type}-message message`;
@@ -292,7 +287,6 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
 
-            // 添加输入指示器
             function addTypingIndicator() {
                 const typingDiv = document.createElement('div');
                 typingDiv.className = 'ai-message message';
@@ -307,7 +301,6 @@
                 return typingDiv;
             }
 
-            // 事件监听
             sendButton.addEventListener('click', sendMessage);
             
             userInput.addEventListener('keypress', function(e) {
