@@ -70,6 +70,42 @@
             font-weight: 600;
         }
 
+        .gateway-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 12px;
+            background-color: var(--bg-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #fbbf24;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.active {
+            background-color: #10b981;
+        }
+
+        .status-dot.inactive {
+            background-color: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
         .header-right {
             display: flex;
             align-items: center;
@@ -330,6 +366,10 @@
     <div class="header">
         <div class="header-left">
             <div class="header-title">AI Chat</div>
+            <div class="gateway-status" id="gatewayStatus" title="AI Gateway 状态">
+                <span class="status-dot"></span>
+                <span class="status-text">检查中...</span>
+            </div>
             <select class="model-select" id="modelSelect">
                 <option value="@cf/meta/llama-3-8b-instruct">Llama 3 8B (推荐)</option>
                 <option value="@cf/meta/llama-2-7b-chat-int8">Llama 2 7B (INT8)</option>
@@ -511,6 +551,7 @@
                         throw new Error(data.error);
                     }
 
+                    updateGatewayStatus(data.gateway);
                     typingIndicator.remove();
                     addMessage('ai', data.response);
 
@@ -573,8 +614,47 @@
                 URL.revokeObjectURL(url);
             }
 
+            function updateGatewayStatus(status) {
+                const statusDot = document.querySelector('.status-dot');
+                const statusText = document.querySelector('.status-text');
+                
+                if (status === 'enabled') {
+                    statusDot.classList.add('active');
+                    statusDot.classList.remove('inactive');
+                    statusText.textContent = 'Gateway 已启用';
+                } else {
+                    statusDot.classList.add('inactive');
+                    statusDot.classList.remove('active');
+                    statusText.textContent = 'Gateway 未启用';
+                }
+            }
+
+            async function checkGatewayStatus() {
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: '',
+                            model: modelSelect.value,
+                            history: []
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        updateGatewayStatus(data.gateway);
+                    }
+                } catch (error) {
+                    console.error('Gateway status check failed:', error);
+                }
+            }
+
             loadTheme();
             loadConversation();
+            checkGatewayStatus();
 
             themeToggle.addEventListener('click', toggleTheme);
             sendButton.addEventListener('click', sendMessage);

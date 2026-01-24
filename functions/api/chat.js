@@ -23,6 +23,7 @@ export async function onRequest(context) {
 
     const accountId = env.CLOUDFLARE_ACCOUNT_ID;
     const apiToken = env.CLOUDFLARE_API_TOKEN;
+    const aiGatewayUrl = env.AI_GATEWAY_URL;
     
     if (!accountId || !apiToken) {
       return new Response(JSON.stringify({ error: 'Cloudflare credentials not configured' }), {
@@ -32,8 +33,7 @@ export async function onRequest(context) {
     }
 
     const selectedModel = model || '@cf/meta/llama-3-8b-instruct';
-    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
-
+    
     const messages = [
       {
         role: 'system',
@@ -57,13 +57,25 @@ export async function onRequest(context) {
       content: message
     });
 
+    let apiUrl;
+    let headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (aiGatewayUrl) {
+      apiUrl = aiGatewayUrl;
+      headers['Authorization'] = `Bearer ${apiToken}`;
+      headers['cf-aig-authorization'] = `Bearer ${apiToken}`;
+    } else {
+      apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${selectedModel}`;
+      headers['Authorization'] = `Bearer ${apiToken}`;
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiToken}`,
-        'Content-Type': 'application/json'
-      },
+      headers: headers,
       body: JSON.stringify({
+        model: selectedModel,
         messages: messages,
         max_tokens: 2048,
         temperature: 0.7
@@ -78,7 +90,10 @@ export async function onRequest(context) {
     const data = await response.json();
     const aiResponse = data.result?.response || data.response || '';
     
-    return new Response(JSON.stringify({ response: aiResponse.trim() }), {
+    return new Response(JSON.stringify({ 
+      response: aiResponse.trim(),
+      gateway: aiGatewayUrl ? 'enabled' : 'disabled'
+    }), {
       headers: { 'Content-Type': 'application/json' }
     });
 

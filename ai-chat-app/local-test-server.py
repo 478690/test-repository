@@ -7,7 +7,7 @@ import os
 
 class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory="public", **kwargs)
+        super().__init__(*args, directory="..", **kwargs)
     
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -27,6 +27,8 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 data = json.loads(post_data.decode('utf-8'))
                 message = data.get('message', '')
+                model = data.get('model', '@cf/meta/llama-3-8b-instruct')
+                history = data.get('history', [])
                 
                 if not message:
                     self.send_response(400)
@@ -37,20 +39,35 @@ class CORSRequestHandler(http.server.SimpleHTTPRequestHandler):
                     return
 
                 print(f"Received message: {message}")
+                print(f"Model: {model}")
+                print(f"History length: {len(history)}")
                 print("Calling Cloudflare AI API...")
                 
-                api_url = 'https://api.cloudflare.com/client/v4/accounts/30fdf13d5bb71a81bc6f7c732f244a72/ai/run/@cf/meta/llama-3-8b-instruct'
+                api_url = f'https://api.cloudflare.com/client/v4/accounts/30fdf13d5bb71a81bc6f7c732f244a72/ai/run/{model}'
+                
+                messages = [
+                    {
+                        'role': 'system',
+                        'content': '你是一个友好的 AI 助手，使用中文回答用户的问题。你可以使用 Markdown 格式来组织回答，包括代码块、列表等。'
+                    }
+                ]
+                
+                for msg in history:
+                    if msg.get('role') in ['user', 'assistant']:
+                        messages.append({
+                            'role': msg['role'],
+                            'content': msg['content']
+                        })
+                
+                messages.append({
+                    'role': 'user',
+                    'content': message
+                })
+                
                 api_data = {
-                    'messages': [
-                        {
-                            'role': 'system',
-                            'content': '你是一个友好的 AI 助手，使用中文回答用户的问题。'
-                        },
-                        {
-                            'role': 'user',
-                            'content': message
-                        }
-                    ]
+                    'messages': messages,
+                    'max_tokens': 2048,
+                    'temperature': 0.7
                 }
                 
                 req = urllib.request.Request(
