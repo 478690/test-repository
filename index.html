@@ -402,11 +402,55 @@
             max-width: 800px;
             margin: 0 auto;
             position: relative;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .action-button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-button:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .action-button.recording {
+            background: #ff4757;
+            border-color: #ff4757;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
         }
 
         .input-box {
-            width: 100%;
-            padding: 16px 60px 16px 16px;
+            flex: 1;
+            padding: 16px 16px;
             border: 2px solid var(--border-color);
             border-radius: 12px;
             background-color: var(--bg-secondary);
@@ -419,6 +463,7 @@
             max-height: 200px;
             overflow-y: auto;
             line-height: 1.5;
+            min-height: 52px;
         }
 
         .input-box:focus {
@@ -431,9 +476,6 @@
         }
 
         .send-button {
-            position: absolute;
-            right: 8px;
-            bottom: 8px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
@@ -446,6 +488,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            margin-bottom: 8px;
         }
 
         .send-button:hover:not(:disabled) {
@@ -594,6 +637,11 @@
             font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
+        }
+
+        .template-icon {
+            font-size: 20px;
+            margin-right: 8px;
         }
 
         .model-badge {
@@ -761,7 +809,24 @@
 
         <div class="input-container">
             <div class="input-wrapper">
-                <textarea class="input-box" id="inputBox" placeholder="输入消息，开始对话..." rows="1"></textarea>
+                <div class="input-actions">
+                    <button class="action-button" id="templateButton" title="使用模板">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="3" y1="9" x2="21" y2="9"></line>
+                            <line x1="9" y1="21" x2="9" y2="9"></line>
+                        </svg>
+                    </button>
+                    <button class="action-button" id="voiceButton" title="语音输入">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                </div>
+                <textarea class="input-box" id="inputBox" placeholder="输入消息，开始对话...（支持语音输入、模板输入、数学公式）" rows="1"></textarea>
                 <button class="send-button" id="sendButton">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -780,6 +845,17 @@
                 <button class="modal-close" id="modalClose">&times;</button>
             </div>
             <div class="modal-body" id="modelModalBody">
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="templateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">选择 Prompt 模板</div>
+                <button class="modal-close" id="templateModalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="templateModalBody">
             </div>
         </div>
     </div>
@@ -890,6 +966,118 @@
             }
         ];
 
+        const promptTemplates = [
+            {
+                category: '写作助手',
+                templates: [
+                    {
+                        id: 'writing-blog',
+                        name: '博客文章',
+                        prompt: '请帮我写一篇关于"{主题}"的博客文章，要求：\n1. 字数在 800-1000 字\n2. 结构清晰，有引言、正文和结论\n3. 语言生动，有吸引力\n4. 包含实际案例或数据支持',
+                        icon: '📝'
+                    },
+                    {
+                        id: 'writing-email',
+                        name: '邮件写作',
+                        prompt: '请帮我写一封{类型}邮件，收件人是{收件人}，主题是{主题}。要求语气{语气}，内容简洁明了。',
+                        icon: '📧'
+                    },
+                    {
+                        id: 'writing-summary',
+                        name: '内容总结',
+                        prompt: '请帮我总结以下内容：\n{内容}\n\n要求：\n1. 提取关键信息\n2. 用简洁的语言表达\n3. 保持逻辑清晰',
+                        icon: '📋'
+                    }
+                ]
+            },
+            {
+                category: '编程助手',
+                templates: [
+                    {
+                        id: 'code-explain',
+                        name: '代码解释',
+                        prompt: '请帮我解释以下代码的功能和工作原理：\n```\n{代码}\n```\n\n要求：\n1. 逐行或逐段解释\n2. 说明关键逻辑\n3. 指出可能的优化点',
+                        icon: '💻'
+                    },
+                    {
+                        id: 'code-debug',
+                        name: '代码调试',
+                        prompt: '请帮我找出以下代码中的问题并提供修复建议：\n```\n{代码}\n```\n\n错误信息：{错误信息}',
+                        icon: '🐛'
+                    },
+                    {
+                        id: 'code-optimize',
+                        name: '代码优化',
+                        prompt: '请帮我优化以下代码，提高性能和可读性：\n```\n{代码}\n```\n\n要求：\n1. 提高执行效率\n2. 改善代码结构\n3. 添加必要注释',
+                        icon: '⚡'
+                    }
+                ]
+            },
+            {
+                category: '学习助手',
+                templates: [
+                    {
+                        id: 'learning-explain',
+                        name: '概念解释',
+                        prompt: '请用通俗易懂的方式解释"{概念}"，要求：\n1. 使用生活中的类比\n2. 避免专业术语\n3. 举例说明',
+                        icon: '📚'
+                    },
+                    {
+                        id: 'learning-quiz',
+                        name: '生成测验',
+                        prompt: '请为"{主题}"生成 5 道选择题，要求：\n1. 难度适中\n2. 包含正确答案和解析\n3. 涵盖不同知识点',
+                        icon: '❓'
+                    },
+                    {
+                        id: 'learning-plan',
+                        name: '学习计划',
+                        prompt: '请为我制定一个学习"{主题}"的计划，要求：\n1. 分阶段进行\n2. 每阶段有明确目标\n3. 推荐学习资源',
+                        icon: '📅'
+                    }
+                ]
+            },
+            {
+                category: '创意助手',
+                templates: [
+                    {
+                        id: 'creative-idea',
+                        name: '创意头脑风暴',
+                        prompt: '请为"{项目/主题}"提供 5 个创意想法，要求：\n1. 创新性强\n2. 可行性高\n3. 详细说明每个想法',
+                        icon: '💡'
+                    },
+                    {
+                        id: 'creative-story',
+                        name: '故事创作',
+                        prompt: '请帮我创作一个关于"{主题}"的短故事，要求：\n1. 情节引人入胜\n2. 人物形象鲜明\n3. 有明确的主题',
+                        icon: '📖'
+                    },
+                    {
+                        id: 'creative-marketing',
+                        name: '营销文案',
+                        prompt: '请为"{产品/服务}"写一段营销文案，要求：\n1. 突出产品优势\n2. 吸引目标用户\n3. 包含行动号召',
+                        icon: '🎯'
+                    }
+                ]
+            },
+            {
+                category: '数学助手',
+                templates: [
+                    {
+                        id: 'math-solve',
+                        name: '数学解题',
+                        prompt: '请帮我解答以下数学题：\n{题目}\n\n要求：\n1. 详细步骤\n2. 解释每个步骤\n3. 验证答案',
+                        icon: '🔢'
+                    },
+                    {
+                        id: 'math-formula',
+                        name: '公式推导',
+                        prompt: '请帮我推导{公式}的证明过程，要求：\n1. 从基础原理开始\n2. 逐步推导\n3. 说明每步依据',
+                        icon: '📐'
+                    }
+                ]
+            }
+        ];
+
         document.addEventListener('DOMContentLoaded', function() {
             const chatContainer = document.getElementById('chatContainer');
             const welcomeScreen = document.getElementById('welcomeScreen');
@@ -908,6 +1096,11 @@
             const sidebar = document.getElementById('sidebar');
             const mobileMenuBtn = document.getElementById('mobileMenuBtn');
             const chatHistory = document.getElementById('chatHistory');
+            const voiceButton = document.getElementById('voiceButton');
+            const templateButton = document.getElementById('templateButton');
+            const templateModal = document.getElementById('templateModal');
+            const templateModalClose = document.getElementById('templateModalClose');
+            const templateModalBody = document.getElementById('templateModalBody');
 
             let conversationHistory = [];
             let isTyping = false;
@@ -1242,6 +1435,142 @@
                 }
             }
 
+            function renderTemplateModal() {
+                templateModalBody.innerHTML = '';
+                
+                promptTemplates.forEach(category => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'model-category';
+                    
+                    const categoryTitle = document.createElement('div');
+                    categoryTitle.className = 'category-title';
+                    categoryTitle.textContent = category.category;
+                    categoryDiv.appendChild(categoryTitle);
+                    
+                    category.templates.forEach(template => {
+                        const templateItem = document.createElement('div');
+                        templateItem.className = 'model-item';
+                        templateItem.dataset.templateId = template.id;
+                        
+                        const header = document.createElement('div');
+                        header.className = 'model-item-header';
+                        
+                        const icon = document.createElement('div');
+                        icon.className = 'template-icon';
+                        icon.textContent = template.icon;
+                        header.appendChild(icon);
+                        
+                        const name = document.createElement('div');
+                        name.className = 'model-name';
+                        name.textContent = template.name;
+                        header.appendChild(name);
+                        
+                        templateItem.appendChild(header);
+                        
+                        const desc = document.createElement('div');
+                        desc.className = 'model-desc';
+                        desc.textContent = template.prompt.substring(0, 100) + '...';
+                        templateItem.appendChild(desc);
+                        
+                        templateItem.onclick = () => selectTemplate(template);
+                        categoryDiv.appendChild(templateItem);
+                    });
+                    
+                    templateModalBody.appendChild(categoryDiv);
+                });
+            }
+
+            function selectTemplate(template) {
+                inputBox.value = template.prompt;
+                autoResizeTextarea();
+                templateModal.classList.remove('show');
+                inputBox.focus();
+            }
+
+            let recognition = null;
+            let isRecording = false;
+
+            function toggleVoiceInput() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    alert('您的浏览器不支持语音识别功能，请使用 Chrome 浏览器。');
+                    return;
+                }
+
+                if (isRecording) {
+                    stopVoiceInput();
+                } else {
+                    startVoiceInput();
+                }
+            }
+
+            function startVoiceInput() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                
+                recognition = new SpeechRecognition();
+                recognition.lang = 'zh-CN';
+                recognition.continuous = false;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => {
+                    isRecording = true;
+                    voiceButton.classList.add('recording');
+                    voiceButton.title = '停止录音';
+                };
+
+                recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    if (finalTranscript) {
+                        inputBox.value += finalTranscript;
+                        autoResizeTextarea();
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('语音识别错误:', event.error);
+                    stopVoiceInput();
+                    
+                    if (event.error === 'not-allowed') {
+                        alert('无法访问麦克风，请确保已授予麦克风权限。');
+                    } else if (event.error === 'no-speech') {
+                        alert('未检测到语音，请重试。');
+                    } else {
+                        alert(`语音识别错误: ${event.error}`);
+                    }
+                };
+
+                recognition.onend = () => {
+                    stopVoiceInput();
+                };
+
+                recognition.start();
+            }
+
+            function stopVoiceInput() {
+                if (recognition) {
+                    recognition.stop();
+                    recognition = null;
+                }
+                isRecording = false;
+                voiceButton.classList.remove('recording');
+                voiceButton.title = '语音输入';
+            }
+
+            function autoResizeTextarea() {
+                inputBox.style.height = 'auto';
+                inputBox.style.height = Math.min(inputBox.scrollHeight, 200) + 'px';
+            }
+
             loadTheme();
             loadChatSessions();
             loadSelectedModel();
@@ -1267,6 +1596,20 @@
                     modelModal.classList.remove('show');
                 }
             });
+
+            templateButton.addEventListener('click', () => {
+                renderTemplateModal();
+                templateModal.classList.add('show');
+            });
+
+            templateModalClose.addEventListener('click', () => templateModal.classList.remove('show'));
+            templateModal.addEventListener('click', (e) => {
+                if (e.target === templateModal) {
+                    templateModal.classList.remove('show');
+                }
+            });
+
+            voiceButton.addEventListener('click', toggleVoiceInput);
 
             mobileMenuBtn.addEventListener('click', () => {
                 sidebar.classList.toggle('open');
