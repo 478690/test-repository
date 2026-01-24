@@ -24,17 +24,39 @@ export async function onRequest(context) {
       });
     }
 
-    const response = await env.AI.run('@cf/meta/llama-2-7b-chat-int8', {
-      prompt: `你是一个友好的 AI 助手，使用中文回答用户的问题。\n\n用户：${message}\n\n助手：`,
-      max_tokens: 512,
-      temperature: 0.7,
-      top_p: 0.9
+    const accountId = env.CLOUDFLARE_ACCOUNT_ID || '30fdf13d5bb71a81bc6f7c732f244a72';
+    const apiToken = env.CLOUDFLARE_API_TOKEN || 'fbRWRPmxK-zJyg9QfhCP-JZBar8ZjSjKuMBkvYFP';
+    const apiUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/meta/llama-3-8b-instruct`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个友好的 AI 助手，使用中文回答用户的问题。'
+          },
+          {
+            role: 'user',
+            content: message
+          }
+        ]
+      })
     });
 
-    let aiResponse = response.response || '';
-    aiResponse = aiResponse.trim();
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.errors?.[0]?.message || 'API request failed');
+    }
 
-    return new Response(JSON.stringify({ response: aiResponse }), {
+    const data = await response.json();
+    const aiResponse = data.result?.response || data.response || '';
+    
+    return new Response(JSON.stringify({ response: aiResponse.trim() }), {
       headers: { 'Content-Type': 'application/json' }
     });
 
