@@ -1,0 +1,12 @@
+name = "test-repository"
+compatibility_date = "2026-01-24"
+pages_build_output_dir = "ai-chat-app/public"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+[[env.production.secrets]]
+CLOUDFLARE_ACCOUNT_ID = "30fdf13d5bb71a81bc6f7c732f244a72"
+CLOUDFLARE_API_TOKEN = "iXE-3JHsLyqG53V6-Rt1ZdB-9ltDzCxrfo8DR9MC"
+AI_GATEWAY_TOKEN = "jDGJmcyVRm_PnbueQq-NIjBfRdXvc8HqPQgbjMSI"
+GOOGLE_GEMINI_API_KEY = "AIzaSyCHXQsENnN8ilwrdWqDartcHOvptRsqetA"
